@@ -1,0 +1,73 @@
+#----networking/main.tf
+
+data "aws_availability_zones" "available" {}
+
+resource "aws_vpc" "data_vpc" {
+  cidr_block           = "${var.vpc_cidr}"
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+
+  tags {
+    Name = "Data VPC"
+  }
+}
+
+resource "aws_route_table" "data_vpc_rt" {
+  vpc_id = "${aws_vpc.data_vpc.id}"
+
+  tags {
+    Name = "Data VPC Route Table"
+    }
+}
+
+resource "aws_subnet" "data_vpc_subnet" {
+  count                   = 3
+  vpc_id                  = "${aws_vpc.data_vpc.id}"
+  cidr_block              = "${var.public_cidrs[count.index]}"
+  map_public_ip_on_launch = true
+  availability_zone       = "${data.aws_availability_zones.available.names[count.index]}"
+
+  tags {
+    Name = "DataSubnet0${count.index + 1}"
+  }
+}
+
+resource "aws_route_table_association" "data_subnet_assoc" {
+  count          = "${aws_subnet.data_vpc_subnet.count}"
+  subnet_id      = "${aws_subnet.data_vpc_subnet.*.id[count.index]}"
+  route_table_id = "${aws_route_table.data_vpc_rt.id}"
+}
+
+
+resource "aws_flow_log" "data_vpc_flow_log" {
+    log_destination      = "${var.s3_bucket_flow}"
+    log_destination_type = "s3"
+    traffic_type         = "ALL"
+    vpc_id               = "${aws_vpc.data_vpc.id}"
+}
+
+----------------------
+var
+
+variable "vpc_cidr" {}
+
+variable "public_cidrs" {
+  type = "list"
+}
+
+variable "accessip" {}
+
+variable "s3_bucket_flow" {}
+
+----------
+
+aws_region = "us-east-1"
+project_name = "terraform"
+vpc_cidr = "100.72.192.0/18"
+public_cidrs = [
+    "100.72.192.0/20",
+    "100.72.208.0/20",
+    "100.72.224.0/20"
+    ]
+s3_bucket_flow = "arn:aws:s3:::jenkins-lamba"
+
