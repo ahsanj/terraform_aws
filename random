@@ -1,0 +1,1 @@
+kubectl get nodes | awk '{print $1}' | tail -n +2 |  xargs -I {} bash -c '\''echo -e "\n\e[31m{}\e[0m"; kubectl describe node {} | grep -i allocated -A 5' | grep -vi allocated | grep -vi total
